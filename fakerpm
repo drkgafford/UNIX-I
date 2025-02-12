@@ -1,0 +1,60 @@
+#!/bin/bash
+#
+# From: https://www.redhat.com/archives/rpm-list/2006-November/msg00062.html
+# Retrieved from: https://gist.github.com/GeoffWilliams/62f4758c46e4e3a3a8a6f81e4935576c#file-fakerpm-sh
+#
+# Instructions: 
+# 1. Install rpmbuild with: 
+#     $ sudo dnf install rpmbuild -y
+# 2. Create the shell script and make it executable. 
+# 3. To create the dummy RPM run the following command:
+#   ./fakerpm.sh dummy-rpm
+# You can install it if you wish.
+#
+# Generate dummy/fake RPMs - great for acceptance testing systems
+#
+NAME=$1 
+
+#
+# GEnerate Provides:
+PROVIDES="Provides: ${1}"
+
+#
+# Generate Spec file
+SPECFILE=$(mktemp)
+cat <<EOF > ${SPECFILE}
+#----------- spec file starts ---------------
+Name:                   ${NAME}
+Version:                1.0.0
+Release:                0
+Vendor:                 dummy
+Group:                  dummy
+Summary:                Provides %{name}
+License:                %{vendor}
+# in Provides: you add whatever you want to fool the system
+Buildroot:              %{_tmppath}/%{name}-%{version}-root
+${PROVIDES}
+%description
+%{summary}
+%files
+EOF
+
+#
+# Build it 
+BUILD_LOG=$(mktemp)
+rpmbuild --define '_rpmdir /tmp' -bb "${SPECFILE}" > "${BUILD_LOG}"
+if [ $? != 0 ]
+then
+  echo "ERROR: Could nto build dummy rpm!"
+fi
+PKG=$(awk '/^Wrote:/ { print $2 }' < "${BUILD_LOG}" )
+rm "${BUILD_LOG}"
+
+#
+# Install it:
+#rpm -Uvh "${PKG}"
+
+rm "${SPECFILE}"
+
+echo "DONE!  created ${PKG} and moved it here..."
+mv $PKG .
